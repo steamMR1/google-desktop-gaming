@@ -93,11 +93,9 @@ jobs:
         sudo apt install -y mesa-vulkan-drivers mesa-vulkan-drivers:i386
         sudo apt install -y libvulkan1 libvulkan1:i386
         sudo apt install -y xserver-xorg-video-amdgpu
-        sudo apt install -y rocm-opencl-runtime
+        sudo apt install -y ocl-icd-opencl-dev
+        sudo apt install -y clinfo
         sudo apt install -y gamemode
-        sudo apt install -y lutris wine64
-        sudo apt install -y pulseaudio pavucontrol
-        sudo apt install -y joystick jstest-gtk mesa-utils
 
     - name: 🌟 CONFIGURE BATTLE DISPLAY
       run: |
