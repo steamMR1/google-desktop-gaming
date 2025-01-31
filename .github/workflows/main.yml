@@ -1,19 +1,19 @@
-name: Ultimate Gaming System
+name: 🔥 EXTREME TURBOCHARGED GAMING SYSTEM 🔥
 
 on:
   workflow_dispatch:
     inputs:
       os_choice:
-        description: '🎮 Select Gaming Platform'
+        description: '🎮 SELECT YOUR GAMING BATTLESTATION'
         required: true
-        default: 'linux'
+        default: 'both'
         type: choice
         options:
         - windows
         - linux
         - both
       crd_code:
-        description: '🔑 Paste your CRD Code from remotedesktop.google.com/headless'
+        description: '🔑 PASTE YOUR BATTLE CODE FROM remotedesktop.google.com/headless'
         required: true
         type: string
 
@@ -24,41 +24,49 @@ jobs:
     timeout-minutes: 525600
 
     steps:
-    - name: Setup AMD GPU
+    - name: 🚀 TURBOCHARGE WINDOWS
+      run: |
+        powercfg /setactive SCHEME_MIN
+        Reg Add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v "Win32PrioritySeparation" /t REG_DWORD /d "38" /f
+        Reg Add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "GPU Priority" /t REG_DWORD /d "8" /f
+        Reg Add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Priority" /t REG_DWORD /d "6" /f
+        Reg Add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Scheduling Category" /t REG_SZ /d "High" /f
+
+    - name: 🎮 UNLEASH AMD POWER
       run: |
         Invoke-WebRequest "https://drivers.amd.com/drivers/installer/22.40/whql/amd-software-adrenalin-edition-23.12.1-minimalsetup-231205_web.exe" -OutFile "AMD.exe"
         Start-Process -FilePath "AMD.exe" -ArgumentList "-install" -Wait
         
-    - name: Download Chrome Remote Desktop
+    - name: 🌟 INSTALL BATTLE STATION ACCESS
       run: |
         curl -L -o chrome_remote_desktop.msi https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi
         Start-Process -FilePath msiexec -ArgumentList '/i chrome_remote_desktop.msi /qn' -Wait
 
-    - name: Configure Remote Access
+    - name: 🛡️ CONFIGURE BATTLE DEFENSES
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
 
-    - name: Setup Chrome Remote Desktop
+    - name: 🔓 ACTIVATE REMOTE COMMAND CENTER
       run: |
         $CRP_CODE = "${{ github.event.inputs.crd_code }}"
-        & "${env:ProgramFiles}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:computername --pin=123456
+        & "${env:ProgramFiles}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name="WINDOWS_BATTLE_STATION" --pin=123456
 
-    - name: Setup Custom User
+    - name: 👑 CREATE COMMANDER ACCESS
       run: |
         Rename-LocalUser -Name "runneradmin" -NewName "droidmaster"
         Set-LocalUser -Name "droidmaster" -Password (ConvertTo-SecureString -AsPlainText "Morales2009" -Force)
 
-    - name: Enable Microsoft Store
+    - name: 🎯 ENABLE GAMING ARSENAL
       run: |
         Get-AppXPackage *WindowsStore* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
         Get-AppXPackage *StorePurchaseApp* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
 
-    - name: Keep Active
+    - name: ⚡ MAINTAIN BATTLE READINESS
       run: |
         while($true) {
-          Write-Host "🎮 Windows Gaming Ready! $(Get-Date)"
+          Write-Host "🔥 WINDOWS BATTLE STATION READY! $(Get-Date) 🔥"
           Start-Sleep -Seconds 300
         }
 
@@ -68,55 +76,53 @@ jobs:
     timeout-minutes: 525600
 
     steps:
-    - name: System Update
+    - name: 🚀 TURBOCHARGE SYSTEM
       run: |
         sudo apt update
         sudo apt upgrade -y
         sudo apt install -y software-properties-common
+        sudo apt install -y preload
+        echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+        echo 'vm.vfs_cache_pressure=50' | sudo tee -a /etc/sysctl.conf
 
-    - name: Install AMD Drivers
+    - name: 🎮 INSTALL GAMING ARSENAL
       run: |
         sudo dpkg --add-architecture i386
-        sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+        sudo add-apt-repository ppa:kisak/kisak-mesa -y
         sudo apt update
         sudo apt install -y mesa-vulkan-drivers mesa-vulkan-drivers:i386
         sudo apt install -y libvulkan1 libvulkan1:i386
-        sudo apt install -y amdgpu-pro-install
+        sudo apt install -y xserver-xorg-video-amdgpu
         sudo apt install -y rocm-opencl-runtime
-        # Virtual AMD RX 6900 XT Configuration
-        echo 'SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ATTRS{vendor}=="0x1002", ATTRS{device}=="0x73bf", MODE="0666"' | sudo tee /etc/udev/rules.d/70-amdgpu.rules
-
-    - name: Install Chrome Remote Desktop
-      run: |
-        wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-        sudo apt install -y ./chrome_remote_desktop_current_amd64.deb
-        sudo DEBIAN_FRONTEND=noninteractive apt install -y xfce4 xfce4-goodies
-        sudo bash -c 'echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" > /etc/chrome-remote-desktop-session'
-
-    - name: Setup Gaming Environment
-      run: |
+        sudo apt install -y gamemode
         sudo apt install -y lutris wine64
         sudo apt install -y pulseaudio pavucontrol
         sudo apt install -y joystick jstest-gtk mesa-utils
-        sudo apt install -y google-chrome-stable
 
-    - name: Configure CRD Service
+    - name: 🌟 CONFIGURE BATTLE DISPLAY
+      run: |
+        wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
+        sudo apt install -y ./chrome-remote-desktop_current_amd64.deb
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y xfce4 xfce4-goodies
+        sudo bash -c 'echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" > /etc/chrome-remote-desktop-session'
+
+    - name: 🔓 ACTIVATE REMOTE COMMAND CENTER
       run: |
         sudo systemctl enable chrome-remote-desktop@$USER
         sudo systemctl start chrome-remote-desktop@$USER
-        DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="${{ github.event.inputs.crd_code }}" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$(hostname) --pin=123456
+        DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="${{ github.event.inputs.crd_code }}" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name="LINUX_BATTLE_STATION" --pin=123456
 
-    - name: Setup Custom User
+    - name: 👑 CREATE COMMANDER ACCESS
       run: |
         sudo useradd -m -s /bin/bash droidmaster
-        sudo usermod -aG sudo,audio,video,render droidmaster
+        sudo usermod -aG sudo,audio,video,render,input droidmaster
         echo "droidmaster:Morales2009" | sudo chpasswd
         echo "droidmaster ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/droidmaster
         sudo chmod 0440 /etc/sudoers.d/droidmaster
 
-    - name: Keep Active
+    - name: ⚡ MAINTAIN BATTLE READINESS
       run: |
         while true; do
-          echo "🎮 Gaming System Active - $(date)"
+          echo "🔥 LINUX BATTLE STATION READY! $(date) 🔥"
           sleep 300
         done
