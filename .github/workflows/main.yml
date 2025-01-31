@@ -31,10 +31,28 @@ jobs:
         $ENV:CRP_CODE = "${{ github.event.inputs.crd_code }}"
         & 'C:\Program Files\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe' --code="$ENV:CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:computername --pin=123456
 
-    - name: Install Gaming Tools
+    - name: Enable Microsoft Store & AppX
       run: |
-        Invoke-WebRequest https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe -OutFile steam.exe
-        Start-Process -FilePath "steam.exe" -ArgumentList '/S' -Wait
+        Get-AppXPackage *WindowsStore* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
+        Get-AppXPackage *StorePurchaseApp* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
+        Get-AppXPackage *DesktopAppInstaller* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
+
+    - name: Setup GPU & Gaming Optimizations
+      run: |
+        # Install Latest NVIDIA Drivers
+        Invoke-WebRequest "https://us.download.nvidia.com/windows/546.33/546.33-desktop-win10-win11-64bit-international-dch-whql.exe" -OutFile "NVIDIA.exe"
+        Start-Process -FilePath "NVIDIA.exe" -ArgumentList "/s /n" -Wait
+        
+        # GPU Optimization
+        nvidia-smi -pm 1
+        nvidia-smi --auto-boost-default=0
+        nvidia-smi -ac 2100,900
+        
+        # System Performance
+        powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" -Name "GPU Priority" -Value 8
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" -Name "Priority" -Value 6
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -Value 38
 
     - name: Keep Active
       run: |
@@ -62,12 +80,16 @@ jobs:
         sudo DEBIAN_FRONTEND=noninteractive apt install -y xfce4 xfce4-goodies
         sudo bash -c 'echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" > /etc/chrome-remote-desktop-session'
 
-    - name: Setup Gaming Environment
+    - name: Setup GPU & Gaming Environment
       run: |
-        sudo apt install -y steam lutris wine64
+        sudo apt install -y nvidia-driver-545 nvidia-settings
+        sudo apt install -y lutris wine64
         sudo apt install -y pulseaudio pavucontrol
         sudo apt install -y joystick jstest-gtk mesa-utils
         sudo apt install -y google-chrome-stable
+        sudo nvidia-smi -pm 1
+        sudo nvidia-smi --auto-boost-default=0
+        sudo nvidia-smi -ac 2100,900
 
     - name: Configure CRD Service
       run: |
