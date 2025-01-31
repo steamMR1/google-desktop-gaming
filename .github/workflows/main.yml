@@ -1,68 +1,37 @@
-name: Ultimate Chrome Remote Gaming
+name: Ultimate Gaming System
 
-on:
-  workflow_dispatch:
-    inputs:
-      os_choice:
-        description: '🎮 Select Gaming Platform'
-        required: true
-        default: 'linux'
-        type: choice
-        options:
-        - windows
-        - linux
-        - both
-      crd_code:
-        description: '🔑 Paste your CRD Code from remotedesktop.google.com/headless'
-        required: true
-        type: string
+on: workflow_dispatch
 
 jobs:
   windows-gaming:
-    if: github.event.inputs.os_choice == 'windows' || github.event.inputs.os_choice == 'both'
     runs-on: windows-latest
     timeout-minutes: 525600
 
-    steps:    
+    steps:
+    - name: Install AMD Drivers
+      run: |
+        Invoke-WebRequest "https://drivers.amd.com/drivers/installer/22.40/whql/amd-software-adrenalin-edition-23.12.1-minimalsetup-231205_web.exe" -OutFile "AMD.exe"
+        Start-Process -FilePath "AMD.exe" -ArgumentList "-install" -Wait
+        
+    - name: Optimize AMD GPU
+      run: |
+        # Enable AMD Radeon RX 6900 XT Settings
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000" -Name "KMD_EnableComputePreemption" -Value 1
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000" -Name "KMD_EnableGPUVirtualization" -Value 1
+
     - name: Setup Chrome Remote Desktop
       run: |
-        Invoke-WebRequest 'https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi' -OutFile 'chromeremotedesktophost.msi'
-        Start-Process msiexec.exe -ArgumentList '/i chromeremotedesktophost.msi /qn' -Wait
-        $ENV:CRP_CODE = "${{ github.event.inputs.crd_code }}"
-        & "${env:ProgramFiles}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$ENV:CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:computername --pin=123456
+        curl -L -o chrome_remote_desktop.msi https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi
+        Start-Process msiexec.exe -ArgumentList '/i chrome_remote_desktop.msi /qn' -Wait
+        $CRP_CODE = "${{ github.event.inputs.crd_code }}"
+        & "${env:ProgramFiles}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:computername --pin=123456
 
-    - name: Enable Microsoft Store & AppX
+    - name: Setup Custom User
       run: |
-        Get-AppXPackage *WindowsStore* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
-        Get-AppXPackage *StorePurchaseApp* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
-        Get-AppXPackage *DesktopAppInstaller* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
-
-    - name: Setup GPU & Gaming Optimizations
-      run: |
-        # Install Latest NVIDIA Drivers
-        Invoke-WebRequest "https://us.download.nvidia.com/windows/546.33/546.33-desktop-win10-win11-64bit-international-dch-whql.exe" -OutFile "NVIDIA.exe"
-        Start-Process -FilePath "NVIDIA.exe" -ArgumentList "/s /n" -Wait
-        
-        # GPU Optimization
-        nvidia-smi -pm 1
-        nvidia-smi --auto-boost-default=0
-        nvidia-smi -ac 2100,900
-        
-        # System Performance
-        powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" -Name "GPU Priority" -Value 8
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" -Name "Priority" -Value 6
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -Value 38
-
-    - name: Keep Active
-      run: |
-        while($true) {
-          Write-Host "🎮 Windows Gaming Active - $(Get-Date)"
-          Start-Sleep -Seconds 300
-        }
+        Rename-LocalUser -Name "runneradmin" -NewName "droidmaster"
+        Set-LocalUser -Name "droidmaster" -Password (ConvertTo-SecureString -AsPlainText "Morales2009" -Force)
 
   linux-gaming:
-    if: github.event.inputs.os_choice == 'linux' || github.event.inputs.os_choice == 'both'
     runs-on: ubuntu-latest
     timeout-minutes: 525600
 
@@ -71,7 +40,17 @@ jobs:
       run: |
         sudo apt update
         sudo apt upgrade -y
-        sudo add-apt-repository ppa:graphics-drivers/ppa -y
+        sudo apt install -y software-properties-common
+
+    - name: Install AMD Drivers
+      run: |
+        sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+        sudo apt update
+        sudo apt install -y mesa-vulkan-drivers mesa-vulkan-drivers:i386
+        sudo apt install -y libvulkan1 libvulkan1:i386
+        sudo apt install -y amdgpu-pro-install
+        # Enable RX 6900 XT optimizations
+        echo "options amdgpu ppfeaturemask=0xffffffff" | sudo tee /etc/modprobe.d/amdgpu.conf
 
     - name: Install Chrome Remote Desktop
       run: |
@@ -80,16 +59,12 @@ jobs:
         sudo DEBIAN_FRONTEND=noninteractive apt install -y xfce4 xfce4-goodies
         sudo bash -c 'echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" > /etc/chrome-remote-desktop-session'
 
-    - name: Setup GPU & Gaming Environment
+    - name: Setup Gaming Environment
       run: |
-        sudo apt install -y nvidia-driver-545 nvidia-settings
         sudo apt install -y lutris wine64
         sudo apt install -y pulseaudio pavucontrol
         sudo apt install -y joystick jstest-gtk mesa-utils
         sudo apt install -y google-chrome-stable
-        sudo nvidia-smi -pm 1
-        sudo nvidia-smi --auto-boost-default=0
-        sudo nvidia-smi -ac 2100,900
 
     - name: Configure CRD Service
       run: |
@@ -97,17 +72,17 @@ jobs:
         sudo systemctl start chrome-remote-desktop@$USER
         DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="${{ github.event.inputs.crd_code }}" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$(hostname) --pin=123456
 
-    - name: Setup Gaming User
+    - name: Setup Custom User
       run: |
-        sudo useradd -m -s /bin/bash gaming
-        sudo usermod -aG sudo,audio,video gaming
-        echo "gaming:P@ssw0rd!" | sudo chpasswd
-        echo "gaming ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/gaming
-        sudo chmod 0440 /etc/sudoers.d/gaming
+        sudo useradd -m -s /bin/bash droidmaster
+        sudo usermod -aG sudo,audio,video droidmaster
+        echo "droidmaster:Morales2009" | sudo chpasswd
+        echo "droidmaster ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/droidmaster
+        sudo chmod 0440 /etc/sudoers.d/droidmaster
 
     - name: Keep Active
       run: |
         while true; do
-          echo "🎮 Linux Gaming Active - $(date)"
+          echo "🎮 Gaming System Active - $(date)"
           sleep 300
         done
