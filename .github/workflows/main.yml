@@ -1,0 +1,91 @@
+name: Ultimate Chrome Remote Gaming
+
+on:
+  workflow_dispatch:
+    inputs:
+      os_choice:
+        description: '🎮 Select Gaming Platform'
+        required: true
+        default: 'linux'
+        type: choice
+        options:
+        - windows
+        - linux
+        - both
+      crd_code:
+        description: '🔑 Paste your CRD Code from remotedesktop.google.com/headless'
+        required: true
+        type: string
+
+jobs:
+  windows-gaming:
+    if: github.event.inputs.os_choice == 'windows' || github.event.inputs.os_choice == 'both'
+    runs-on: windows-latest
+    timeout-minutes: 525600
+
+    steps:
+    - name: Setup Chrome Remote Desktop
+      run: |
+        Invoke-WebRequest 'https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi' -OutFile 'crd.msi'
+        Start-Process msiexec.exe -ArgumentList '/i crd.msi /qn' -Wait
+        $ENV:CRP_CODE = "${{ github.event.inputs.crd_code }}"
+        & 'C:\Program Files\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe' --code="$ENV:CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:computername --pin=123456
+
+    - name: Install Gaming Tools
+      run: |
+        Invoke-WebRequest https://cdn.cloudflare.steamstatic.com/client/installer/SteamSetup.exe -OutFile steam.exe
+        Start-Process -FilePath "steam.exe" -ArgumentList '/S' -Wait
+
+    - name: Keep Active
+      run: |
+        while($true) {
+          Write-Host "🎮 Windows Gaming Active - $(Get-Date)"
+          Start-Sleep -Seconds 300
+        }
+
+  linux-gaming:
+    if: github.event.inputs.os_choice == 'linux' || github.event.inputs.os_choice == 'both'
+    runs-on: ubuntu-latest
+    timeout-minutes: 525600
+
+    steps:
+    - name: System Update
+      run: |
+        sudo apt update
+        sudo apt upgrade -y
+        sudo add-apt-repository ppa:graphics-drivers/ppa -y
+
+    - name: Install Chrome Remote Desktop
+      run: |
+        wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
+        sudo apt install -y ./chrome-remote-desktop_current_amd64.deb
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y xfce4 xfce4-goodies
+        sudo bash -c 'echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" > /etc/chrome-remote-desktop-session'
+
+    - name: Setup Gaming Environment
+      run: |
+        sudo apt install -y steam lutris wine64
+        sudo apt install -y pulseaudio pavucontrol
+        sudo apt install -y joystick jstest-gtk mesa-utils
+        sudo apt install -y google-chrome-stable
+
+    - name: Configure CRD Service
+      run: |
+        sudo systemctl enable chrome-remote-desktop@$USER
+        sudo systemctl start chrome-remote-desktop@$USER
+        DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="${{ github.event.inputs.crd_code }}" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$(hostname) --pin=123456
+
+    - name: Setup Gaming User
+      run: |
+        sudo useradd -m -s /bin/bash gaming
+        sudo usermod -aG sudo,audio,video gaming
+        echo "gaming:P@ssw0rd!" | sudo chpasswd
+        echo "gaming ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/gaming
+        sudo chmod 0440 /etc/sudoers.d/gaming
+
+    - name: Keep Active
+      run: |
+        while true; do
+          echo "🎮 Linux Gaming Active - $(date)"
+          sleep 300
+        done
