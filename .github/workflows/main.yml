@@ -1,28 +1,47 @@
 name: Ultimate Gaming System
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      os_choice:
+        description: '🎮 Select Gaming Platform'
+        required: true
+        default: 'linux'
+        type: choice
+        options:
+        - windows
+        - linux
+        - both
+      crd_code:
+        description: '🔑 Paste your CRD Code from remotedesktop.google.com/headless'
+        required: true
+        type: string
 
 jobs:
   windows-gaming:
+    if: github.event.inputs.os_choice == 'windows' || github.event.inputs.os_choice == 'both'
     runs-on: windows-latest
     timeout-minutes: 525600
 
     steps:
-    - name: Install AMD Drivers
+    - name: Setup AMD GPU
       run: |
         Invoke-WebRequest "https://drivers.amd.com/drivers/installer/22.40/whql/amd-software-adrenalin-edition-23.12.1-minimalsetup-231205_web.exe" -OutFile "AMD.exe"
         Start-Process -FilePath "AMD.exe" -ArgumentList "-install" -Wait
         
-    - name: Optimize AMD GPU
+    - name: Download Chrome Remote Desktop
       run: |
-        # Enable AMD Radeon RX 6900 XT Settings
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000" -Name "KMD_EnableComputePreemption" -Value 1
-        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}\0000" -Name "KMD_EnableGPUVirtualization" -Value 1
+        curl -L -o chrome_remote_desktop.msi https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi
+        Start-Process -FilePath msiexec -ArgumentList '/i chrome_remote_desktop.msi /qn' -Wait
+
+    - name: Configure Remote Access
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
 
     - name: Setup Chrome Remote Desktop
       run: |
-        curl -L -o chrome_remote_desktop.msi https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi
-        Start-Process msiexec.exe -ArgumentList '/i chrome_remote_desktop.msi /qn' -Wait
         $CRP_CODE = "${{ github.event.inputs.crd_code }}"
         & "${env:ProgramFiles}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:computername --pin=123456
 
@@ -31,7 +50,20 @@ jobs:
         Rename-LocalUser -Name "runneradmin" -NewName "droidmaster"
         Set-LocalUser -Name "droidmaster" -Password (ConvertTo-SecureString -AsPlainText "Morales2009" -Force)
 
+    - name: Enable Microsoft Store
+      run: |
+        Get-AppXPackage *WindowsStore* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
+        Get-AppXPackage *StorePurchaseApp* -AllUsers | Foreach {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
+
+    - name: Keep Active
+      run: |
+        while($true) {
+          Write-Host "🎮 Windows Gaming Ready! $(Get-Date)"
+          Start-Sleep -Seconds 300
+        }
+
   linux-gaming:
+    if: github.event.inputs.os_choice == 'linux' || github.event.inputs.os_choice == 'both'
     runs-on: ubuntu-latest
     timeout-minutes: 525600
 
@@ -49,13 +81,14 @@ jobs:
         sudo apt install -y mesa-vulkan-drivers mesa-vulkan-drivers:i386
         sudo apt install -y libvulkan1 libvulkan1:i386
         sudo apt install -y amdgpu-pro-install
-        # Enable RX 6900 XT optimizations
-        echo "options amdgpu ppfeaturemask=0xffffffff" | sudo tee /etc/modprobe.d/amdgpu.conf
+        sudo apt install -y rocm-opencl-runtime
+        # Virtual AMD RX 6900 XT Configuration
+        echo 'SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ATTRS{vendor}=="0x1002", ATTRS{device}=="0x73bf", MODE="0666"' | sudo tee /etc/udev/rules.d/70-amdgpu.rules
 
     - name: Install Chrome Remote Desktop
       run: |
         wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
-        sudo apt install -y ./chrome-remote-desktop_current_amd64.deb
+        sudo apt install -y ./chrome_remote_desktop_current_amd64.deb
         sudo DEBIAN_FRONTEND=noninteractive apt install -y xfce4 xfce4-goodies
         sudo bash -c 'echo "exec /etc/X11/Xsession /usr/bin/xfce4-session" > /etc/chrome-remote-desktop-session'
 
@@ -75,7 +108,7 @@ jobs:
     - name: Setup Custom User
       run: |
         sudo useradd -m -s /bin/bash droidmaster
-        sudo usermod -aG sudo,audio,video droidmaster
+        sudo usermod -aG sudo,audio,video,render droidmaster
         echo "droidmaster:Morales2009" | sudo chpasswd
         echo "droidmaster ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/droidmaster
         sudo chmod 0440 /etc/sudoers.d/droidmaster
