@@ -23,13 +23,13 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 525600
 
-    steps:
+    steps:    
     - name: Setup Chrome Remote Desktop
       run: |
-        Invoke-WebRequest 'https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi' -OutFile 'crd.msi'
-        Start-Process msiexec.exe -ArgumentList '/i crd.msi /qn' -Wait
+        Invoke-WebRequest 'https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi' -OutFile 'chromeremotedesktophost.msi'
+        Start-Process msiexec.exe -ArgumentList '/i chromeremotedesktophost.msi /qn' -Wait
         $ENV:CRP_CODE = "${{ github.event.inputs.crd_code }}"
-        & 'C:\Program Files\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe' --code="$ENV:CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:computername --pin=123456
+        & "${env:ProgramFiles}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="$ENV:CRP_CODE" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=$env:computername --pin=123456
 
     - name: Enable Microsoft Store & AppX
       run: |
